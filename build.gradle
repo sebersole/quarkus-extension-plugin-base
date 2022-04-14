@@ -1,0 +1,107 @@
+plugins {
+    // plugin
+    id 'java-library'
+    id 'publishing'
+
+    id 'maven-publish'
+}
+
+group 'io.github.sebersole'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+
+// plugin
+sourceSets {
+    deployment
+//    main
+    spi
+//    test
+}
+
+
+configurations {
+    // plugin
+    quarkusPlatform {
+        description = 'Gradle Configuration for defining Quarkus platforms (boms) to be applied'
+    }
+
+    // plugin
+//    deploymentImplementation {
+//        extendsFrom runtimeElements
+//    }
+}
+
+// plugin
+configurations.all {
+    if ( it.name != 'quarkusPlatform' ) {
+        it.extendsFrom configurations.quarkusPlatform
+    }
+}
+
+// plugin
+task deploymentJar(type: Jar) {
+    description = 'Creates the deployment artifact'
+    dependsOn tasks.compileDeploymentJava
+
+    archiveAppendix = 'deployment'
+    destinationDirectory = project.layout.buildDirectory.dir( 'libs' )
+    from sourceSets.deployment.java.destinationDirectory
+}
+
+// plugin
+tasks.compileTestJava.dependsOn tasks.deploymentJar
+
+dependencies {
+    // plugin
+    quarkusPlatform enforcedPlatform( 'io.quarkus:quarkus-bom:2.8.0.Final' )
+
+    // plugin
+    implementation 'io.quarkus:quarkus-core'
+
+    // plugin
+    deploymentImplementation 'io.quarkus:quarkus-core-deployment'
+
+    // plugin
+    deploymentCompileOnly project.files( tasks.jar.archiveFile )
+
+    // plugin - this part will need to be added to the generated pom directly (as compile scope)
+    //deploymentRuntimeOnly "io.github.sebersole:my-extension:${project.version}"
+
+    // plugin
+//    testImplementation project.files( tasks.jar.archiveFile )
+    testImplementation project.files( tasks.deploymentJar.archiveFile )
+
+    implementation 'org.hibernate.orm:hibernate-core:6.0.0.Final'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+
+test {
+    useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        // plugin
+        deployment(MavenPublication) {
+            artifactId = "my-extension-deployment"
+        }
+        runtime(MavenPublication) {
+            artifactId = "my-extension"
+        }
+        // plugin
+        spi(MavenPublication) {
+            artifactId = "my-extension-spi"
+        }
+    }
+
+    repositories {
+
+    }
+}

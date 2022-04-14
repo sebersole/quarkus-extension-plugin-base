@@ -1,0 +1,10 @@
+# Project exclude paths
+/.gradle/
+/build/
+/build/classes/java/deployment/
+/build/classes/java/main/
+/build/classes/java/test/
+
+.idea/
+
+!gradle/wrapper/gradle-wrapper.jar
