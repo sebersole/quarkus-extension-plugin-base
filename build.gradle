@@ -3,6 +3,15 @@ plugins {
     id 'java-library'
     id 'publishing'
 
+    // NOTE : the plugin would apply the `publishing` plugin just to get access
+    // to PublishingExtension, Publication, etc.
+    //
+    // The extension would configure to use `maven-publishing` or `ivy-publishing`
+    // and to define the repositories.
+    //
+    // However, this means (most likely) that the plugin will need to be sensitive to
+    // which specific one was added in order to properly define the Publications (which
+    // are specific to each publishing plugin)
     id 'maven-publish'
 }
 
@@ -13,13 +22,51 @@ repositories {
     mavenCentral()
 }
 
+var extensionName = "my-extension"
 
 // plugin
 sourceSets {
     deployment
-//    main
     spi
+
+// added by the java-library plugin
+//    main
 //    test
+}
+
+
+// plugin
+afterEvaluate {
+    if ( ! sourceSets.spi.java.isEmpty() || ! sourceSets.spi.resources.isEmpty() ) {
+        logger.lifecycle 'SPI sourceSet contained java/resources'
+
+        task spiJar(type: Jar) {
+            description = 'Creates the SPI artifact'
+            dependsOn tasks.compileSpiJava
+            tasks.compileJava.dependsOn it
+
+            archivesBaseName = extensionName
+            archiveAppendix = 'spi'
+
+            destinationDirectory = project.layout.buildDirectory.dir( 'libs' )
+            from sourceSets.spi.java.destinationDirectory
+        }
+
+        dependencies {
+            implementation files( tasks.spiJar.archiveFile )
+        }
+
+        publishing {
+            publications {
+                spi(MavenPublication) {
+                    artifactId = "my-extension-spi"
+                }
+            }
+        }
+    }
+    else {
+        logger.lifecycle 'SPI sourceSet did not contain java/resources'
+    }
 }
 
 
@@ -42,12 +89,18 @@ configurations.all {
     }
 }
 
+tasks.jar {
+    archivesBaseName = extensionName
+}
+
 // plugin
 task deploymentJar(type: Jar) {
     description = 'Creates the deployment artifact'
     dependsOn tasks.compileDeploymentJava
 
+    archivesBaseName = extensionName
     archiveAppendix = 'deployment'
+
     destinationDirectory = project.layout.buildDirectory.dir( 'libs' )
     from sourceSets.deployment.java.destinationDirectory
 }
@@ -72,10 +125,7 @@ dependencies {
     //deploymentRuntimeOnly "io.github.sebersole:my-extension:${project.version}"
 
     // plugin
-//    testImplementation project.files( tasks.jar.archiveFile )
     testImplementation project.files( tasks.deploymentJar.archiveFile )
-
-    implementation 'org.hibernate.orm:hibernate-core:6.0.0.Final'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
@@ -91,13 +141,12 @@ publishing {
         // plugin
         deployment(MavenPublication) {
             artifactId = "my-extension-deployment"
+
+            artifact project.tasks.deploymentJar
         }
         runtime(MavenPublication) {
             artifactId = "my-extension"
-        }
-        // plugin
-        spi(MavenPublication) {
-            artifactId = "my-extension-spi"
+            from components.java
         }
     }
 
@@ -105,3 +154,9 @@ publishing {
 
     }
 }
+
+tasks.withType(GenerateModuleMetadata).configureEach {
+    // See https://docs.gradle.org/current/userguide/publishing_setup.html#sec:suppressing_validation_errors
+    suppressedValidationErrors.add('enforced-platform')
+}
+

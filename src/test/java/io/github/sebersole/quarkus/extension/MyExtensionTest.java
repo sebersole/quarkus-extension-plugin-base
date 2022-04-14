@@ -8,8 +8,9 @@ import org.junit.jupiter.api.Test;
 public class MyExtensionTest {
 	@Test
 	public void testIt() {
-		// just make sure we can reference stuff from both the runtime and deployment artifacts
+		// just make sure we can reference stuff from both the other artifacts
 		MyExtensionConfig config;
 		MyExtensionProcessor processor;
+		MyExtensionSpi spi;
 	}
 }
